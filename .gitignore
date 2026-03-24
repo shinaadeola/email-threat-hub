@@ -4,7 +4,6 @@ venv/
 env/
 
 # Google OAuth secrets — NEVER upload this
-credentials.json
 token.json
 
 # Database (will be recreated on Render)

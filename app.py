@@ -8,15 +8,20 @@ from flask_login import LoginManager, login_user, login_required, logout_user, c
 import bcrypt
 from models_db import db, User, ScanHistory
 
-# Disable warning for development
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+# Allow OAuth over HTTP for local development only
+if os.environ.get('FLASK_ENV') != 'production':
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_flask_session_replace_in_prod'
 
 # Configure Database
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'database.db')
+database_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'database.db'))
+# Render provides 'postgres://' but SQLAlchemy requires 'postgresql://'
+if database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
