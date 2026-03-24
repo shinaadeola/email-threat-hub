@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 2rem;">
+    <h1>Threat<span style="color: var(--accent);">Detector</span> Scanner</h1>
+    <p>Analyze any email content using our dual-stage Machine Learning Engine.</p>
+</div>
+
+<div style="display: flex; gap: 30px;">
+    <div style="flex: 1; background: var(--glass-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border);">
+        <h3 style="margin-top: 0;">Manual Text Scan</h3>
+        <form action="{{ url_for('analyze') }}" method="POST">
+            <textarea name="emailInput" rows="10" placeholder="Paste the suspicious email text here..." required style="width: 100%; background: rgba(0,0,0,0.1); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 15px; border-radius: 8px; margin-bottom: 15px; font-family: inherit; resize: vertical; box-sizing: border-box;"></textarea>
+            <button type="submit" class="btn" style="width: 100%;">Run Machine Learning Analysis</button>
+        </form>
+    </div>
+    
+    <div style="flex: 1; background: var(--glass-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border);">
+        <h3 style="margin-top: 0;">Live Gmail Integration</h3>
+        <p style="font-size: 0.9rem;">Securely authenticate with Google OAuth 2.0 to scan your latest unread emails automatically.</p>
+        <form action="{{ url_for('trigger_scan') }}" method="POST">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px;">Number of emails to scan</label>
+                <input type="number" name="scan_count" value="10" min="1" max="50" style="width: 100%; background: rgba(0,0,0,0.1); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 10px; border-radius: 5px; box-sizing: border-box;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                    <input type="checkbox" name="unread_only" checked>
+                    <span>Only scan UNREAD emails</span>
+                </label>
+            </div>
+            
+            <button type="submit" class="btn btn-danger" style="width: 100%; background: linear-gradient(135deg, #db4437, #c53929);">Connect with Google Workspace</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

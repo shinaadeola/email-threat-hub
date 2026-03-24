@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Welcome, {{ current_user.username }}!</h2>
+<p>Here is your recent Email Threat Analysis history.</p>
+
+<a href="{{ url_for('scan_page') }}" class="btn">Scan New Email</a>
+<a href="{{ url_for('google_login') }}" class="btn" style="background:#db4437;">Scan Inbox with Gmail</a>
+
+<h3 style="margin-top: 30px;">Recent Scans</h3>
+{% if scans %}
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Subject</th>
+                <th>Sender</th>
+                <th>Anomaly Score</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scan in scans %}
+                <tr>
+                    <td>{{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ scan.email_subject or 'Manual Text Entry' }}</td>
+                    <td>{{ scan.email_sender or 'N/A' }}</td>
+                    <td>{{ "%.2f"|format(scan.anomaly_score) }}</td>
+                    <td>
+                        {% if scan.status == 'Safe' %}
+                            <span class="safe">Safe</span>
+                        {% elif scan.status == 'Business Email Compromise' %}
+                            <span class="bec">BEC Threat</span>
+                        {% else %}
+                            <span class="threat">Phishing/Spam</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>You haven't scanned any emails yet.</p>
+{% endif %}
+{% endblock %}

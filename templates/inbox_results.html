@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 2rem;">
+    <h1>Live <span style="color: var(--accent);">Inbox Scan</span></h1>
+    <p>The Stacked Machine Learning Architecture analyzed the {{ emails|length }} most recent unread emails fetched securely via the Gmail API.</p>
+</div>
+
+{% if emails %}
+    {% for email in emails %}
+    <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 15px;">
+            <div>
+                <h3 style="margin: 0;">{{ email.subject }}</h3>
+                <small style="color: var(--text-secondary);">From: {{ email.sender }}</small>
+            </div>
+            <div>
+                {% if email.status == 'Threat' or email.status == 'Phishing' %}
+                    <span style="background: rgba(255, 75, 43, 0.2); color: var(--danger); padding: 5px 15px; border-radius: 20px; font-weight: bold;">Phishing Threat</span>
+                {% elif email.status == 'Business Email Compromise' %}
+                    <span style="background: rgba(241, 196, 15, 0.2); color: var(--warning); padding: 5px 15px; border-radius: 20px; font-weight: bold;">BEC Threat</span>
+                {% else %}
+                    <span style="background: rgba(0, 176, 155, 0.2); color: var(--success); padding: 5px 15px; border-radius: 20px; font-weight: bold;">Safe</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 15px;">
+            <p style="margin: 0; font-family: monospace; color: var(--text-secondary);">{{ email.snippet }}...</p>
+        </div>
+        
+        <div style="display: flex; gap: 20px; font-size: 0.9rem;">
+            <div><strong>Stage 1:</strong> Isolation Forest (Score: {{ "%.3f"|format(email.score) }})</div>
+            <div><strong>Stage 2:</strong> Random Forest (Verdict: 
+                {% if email.status == 'Safe' %}
+                    <span class="safe">{{ email.status }}</span>
+                {% else %}
+                    <span class="threat">{{ email.status }}</span>
+                {% endif %}
+            )</div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div style="text-align: center; padding: 40px; background: var(--glass-bg); border-radius: 12px;">
+        <h2>Inbox Empty</h2>
+        <p>No unread emails were found in your linked Gmail account.</p>
+    </div>
+{% endif %}
+
+<div style="text-align: center; margin-top: 2rem;">
+    <a href="{{ url_for('scan_page') }}" class="btn">New Analysis</a>
+</div>
+{% endblock %}

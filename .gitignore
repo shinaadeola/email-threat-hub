@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Google OAuth secrets — NEVER upload this
+credentials.json
+token.json
+
+# Database (will be recreated on Render)
+database.db
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code settings
+.vscode/
+
+# Environment variables
+.env

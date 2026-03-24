@@ -1,0 +1,38 @@
+# Email Threat Analysis Hub — Requirements
+# Generated: 2026-03-24
+
+# --- Web Framework ---
+Flask==3.1.0
+Werkzeug==3.1.6
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.48
+
+# --- Security ---
+bcrypt==5.0.0
+
+# --- Machine Learning ---
+scikit-learn==1.8.0
+numpy==2.4.2
+scipy==1.17.0
+joblib==1.5.1
+threadpoolctl==3.6.0
+
+# --- Data Handling ---
+pandas==2.3.3
+
+# --- Google / Gmail API ---
+google-api-python-client
+google-auth==2.40.0
+google-auth-oauthlib==1.2.4
+google-auth-httplib2
+requests==2.32.5
+requests-oauthlib==2.0.0
+oauthlib==3.3.1
+
+# --- HTML Parsing ---
+beautifulsoup4==4.14.3
+soupsieve==2.8.3
+
+# --- Production Server ---
+gunicorn==23.0.0

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Threat Analysis Hub</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            --text-primary: #ffffff;
+            --text-secondary: #b3c5cc;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #00f2fe;
+            --accent-hover: #4facfe;
+            --danger: #ff4b2b;
+            --success: #00b09b;
+            --warning: #f1c40f;
+        }
+
+        [data-theme="light"] {
+            --bg-gradient: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+            --text-primary: #1a1a2e;
+            --text-secondary: #4a4a68;
+            --glass-bg: rgba(255, 255, 255, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --accent: #667eea;
+            --accent-hover: #764ba2;
+        }
+
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            min-height: 100vh;
+            background: var(--bg-gradient); 
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
+            color: var(--text-primary); 
+            transition: all 0.5s ease; 
+        }
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .navbar { 
+            background: rgba(0, 0, 0, 0.2); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.2rem 2rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: -webkit-linear-gradient(right, var(--accent), #fff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        .nav-links a { 
+            color: var(--text-primary); 
+            text-decoration: none; 
+            margin-left: 20px; 
+            font-weight: 600;
+            font-size: 1rem;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover { color: var(--accent); }
+
+        .container { 
+            max-width: 1000px; 
+            margin: 40px auto; 
+            background: var(--glass-bg); 
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            padding: 40px; 
+            border-radius: 20px; 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3); 
+            transition: all 0.5s ease;
+        }
+
+        .btn { 
+            background: linear-gradient(135deg, var(--accent), var(--accent-hover)); 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 30px; 
+            cursor: pointer; 
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+            display: inline-block;
+        }
+
+        .btn:hover { 
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-danger { background: linear-gradient(135deg, var(--danger), #ff416c); }
+
+        .flash { 
+            background: rgba(255, 75, 43, 0.8); 
+            color: white; 
+            padding: 15px; 
+            margin-bottom: 25px; 
+            border-radius: 10px; 
+            border-left: 5px solid #ff416c;
+            backdrop-filter: blur(5px);
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: separate; 
+            border-spacing: 0 10px; 
+            margin-top: 20px; 
+        }
+        
+        th, td { 
+            padding: 16px; 
+            text-align: left; 
+        }
+        
+        th { 
+            background: transparent;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        tr {
+            background: var(--glass-bg);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border-radius: 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        tr:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+
+        td:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+        td:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+
+        .threat { color: var(--danger); font-weight: 800; text-shadow: 0 0 10px rgba(255,75,43,0.3); }
+        .safe { color: var(--success); font-weight: 800; text-shadow: 0 0 10px rgba(0,176,155,0.3); }
+        .bec { color: var(--warning); font-weight: 800; text-shadow: 0 0 10px rgba(241,196,15,0.3); }
+        
+        .theme-toggle { 
+            background: var(--glass-bg); 
+            border: 1px solid var(--glass-border); 
+            color: var(--text-primary); 
+            border-radius: 30px; 
+            padding: 8px 15px; 
+            cursor: pointer; 
+            margin-left: 20px;
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .theme-toggle:hover { transform: rotate(15deg) scale(1.1); }
+        
+        h1, h2, h3 { font-weight: 800; margin-top: 0; }
+        p { color: var(--text-secondary); line-height: 1.6; }
+
+        /* Input styling for login/register forms */
+        input[type="text"], input[type="password"] {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 12px 15px;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+            background: rgba(255, 255, 255, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="navbar-brand">🛡️ Shield AI</div>
+        <div class="nav-links">
+            <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('scan_page') }}">New Scan</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_dashboard') }}">Admin Panel</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">Logout ({{ current_user.username }})</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('register') }}">Register</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="flash">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+        // Check local storage for theme preference
+        const currentTheme = localStorage.getItem('theme') ? localStorage.getItem('theme') : null;
+        if (currentTheme) {
+            document.documentElement.setAttribute('data-theme', currentTheme);
+        }
+
+        function toggleTheme() {
+            let theme = document.documentElement.getAttribute('data-theme');
+            if (theme === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+    </script>
+</body>
+</html>
