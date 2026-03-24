@@ -38,6 +38,25 @@ def load_user(user_id):
 # Create database tables if they don't exist
 with app.app_context():
     db.create_all()
+    # Safe migration: add new columns to scan_history if they don't exist yet.
+    # db.create_all() only creates new tables — it never alters existing ones.
+    # This block handles the Render PostgreSQL deployment case.
+    try:
+        with db.engine.connect() as conn:
+            migration_stmts = [
+                "ALTER TABLE scan_history ADD COLUMN IF NOT EXISTS threat_classification VARCHAR(20)",
+                "ALTER TABLE scan_history ADD COLUMN IF NOT EXISTS confidence_score FLOAT",
+                "ALTER TABLE scan_history ADD COLUMN IF NOT EXISTS detection_signals TEXT",
+            ]
+            for stmt in migration_stmts:
+                try:
+                    conn.execute(db.text(stmt))
+                except Exception:
+                    pass  # column may already exist or DB doesn't support IF NOT EXISTS
+            conn.commit()
+    except Exception as e:
+        print(f"Migration warning (non-fatal): {e}")
+
 
 # Load models safely on startup
 model_path = os.path.join("models", "isoforest.pkl")
