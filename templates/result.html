@@ -1,11 +1,17 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    .result-grid { display: flex; gap: 30px; align-items: flex-start; }
+    @media (max-width: 768px) {
+        .result-grid { flex-direction: column; gap: 16px; }
+    }
+</style>
 <div style="text-align: center; margin-bottom: 2rem;">
     <h1>Analysis <span style="color: var(--accent);">Result</span></h1>
 </div>
 
-<div style="display: flex; gap: 30px;">
+<div class="result-grid">
     <!-- Left Column: Verdict -->
     <div style="flex: 1; background: var(--glass-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border); text-align: center;">
         <h2 style="margin-top: 0;">Verdict</h2>

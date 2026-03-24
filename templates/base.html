@@ -204,6 +204,70 @@
             box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
             background: rgba(255, 255, 255, 0.15);
         }
+
+        /* ============================================================
+           RESPONSIVE — tablets & phones
+           ============================================================ */
+
+        /* Tablet: ≤ 768px */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 0.9rem 1.2rem;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .navbar-brand { font-size: 1.15rem; }
+            .nav-links { display: flex; flex-wrap: wrap; gap: 6px; }
+            .nav-links a { margin-left: 0; font-size: 0.88rem; }
+
+            .container {
+                margin: 15px 10px;
+                padding: 20px 16px;
+                border-radius: 14px;
+            }
+
+            /* Two-column flex layouts → single column */
+            div[style*="display: flex; gap: 30px"],
+            div[style*="display:flex; gap: 30px"] {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+
+            /* Tables scroll horizontally */
+            table { display: block; overflow-x: auto; white-space: nowrap; }
+
+            h1 { font-size: 1.6rem; }
+            h2 { font-size: 1.3rem; }
+
+            .btn { padding: 10px 18px; font-size: 0.9rem; }
+
+            .theme-toggle { margin-left: 0; }
+        }
+
+        /* Phone: ≤ 480px */
+        @media (max-width: 480px) {
+            .navbar { padding: 0.75rem 1rem; }
+            .navbar-brand { font-size: 1rem; }
+            .nav-links a { font-size: 0.80rem; }
+
+            .container {
+                margin: 10px 6px;
+                padding: 16px 12px;
+                border-radius: 12px;
+            }
+
+            h1 { font-size: 1.4rem; }
+            h2 { font-size: 1.15rem; }
+            h3 { font-size: 1rem; }
+
+            .btn { width: 100%; text-align: center; box-sizing: border-box; }
+
+            /* Stat/badge rows → wrapping */
+            div[style*="display: flex; gap"] {
+                flex-wrap: wrap !important;
+                gap: 10px !important;
+            }
+        }
     </style>
 </head>
 <body>
