@@ -3,8 +3,9 @@
 {% block content %}
 <div style="text-align: center; margin-bottom: 2rem;">
     <h1>Live <span style="color: var(--accent);">Inbox Scan</span></h1>
-    <p>The Stacked Machine Learning Architecture analyzed the {{ emails|length }} most recent unread emails fetched securely via the Gmail API.</p>
+    <p>Scanned folder: <strong style="color: var(--accent);">{{ scanned_folder or 'Inbox' }}</strong> &mdash; {{ emails|length }} email(s) analyzed by the Stacked Machine Learning Architecture.</p>
 </div>
+
 
 {% if emails %}
     {% for email in emails %}

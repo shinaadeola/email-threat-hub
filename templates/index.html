@@ -17,8 +17,26 @@
     
     <div style="flex: 1; background: var(--glass-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border);">
         <h3 style="margin-top: 0;">Live Gmail Integration</h3>
-        <p style="font-size: 0.9rem;">Securely authenticate with Google OAuth 2.0 to scan your latest unread emails automatically.</p>
+        <p style="font-size: 0.9rem;">Securely authenticate with Google OAuth 2.0 to scan your Gmail emails automatically.</p>
         <form action="{{ url_for('trigger_scan') }}" method="POST">
+
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">&#128193; Scan From</label>
+                <select name="gmail_category" style="width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 10px; border-radius: 5px; box-sizing: border-box; font-family: inherit; font-size: 0.95rem; cursor: pointer;">
+                    <option value="inbox">&#128229; Inbox</option>
+                    <option value="important">&#11088; Important</option>
+                    <option value="spam">&#128683; Spam</option>
+                    <option value="trash">&#128465; Trash</option>
+                    <option value="starred">&#11088; Starred</option>
+                    <option value="social">&#128101; Social</option>
+                    <option value="promotions">&#127991; Promotions</option>
+                    <option value="updates">&#128276; Updates</option>
+                    <option value="forums">&#128172; Forums</option>
+                    <option value="purchases">&#128722; Purchases</option>
+                    <option value="sent">&#128228; Sent</option>
+                </select>
+            </div>
+
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px;">Number of emails to scan</label>
                 <input type="number" name="scan_count" value="10" min="1" max="50" style="width: 100%; background: rgba(0,0,0,0.1); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 10px; border-radius: 5px; box-sizing: border-box;">
@@ -27,11 +45,11 @@
             <div style="margin-bottom: 15px;">
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                     <input type="checkbox" name="unread_only" checked>
-                    <span>Only scan UNREAD emails</span>
+                    <span>Only scan UNREAD emails <small style="color: var(--text-secondary);">(ignored for Spam/Trash/Sent)</small></span>
                 </label>
             </div>
             
-            <button type="submit" class="btn btn-danger" style="width: 100%; background: linear-gradient(135deg, #db4437, #c53929);">Connect with Google Workspace</button>
+            <button type="submit" class="btn btn-danger" style="width: 100%; background: linear-gradient(135deg, #db4437, #c53929);">Connect with Google &amp; Start Scan</button>
         </form>
     </div>
 </div>

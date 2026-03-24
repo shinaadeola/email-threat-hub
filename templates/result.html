@@ -13,7 +13,7 @@
         <div style="margin: 20px 0;">
             {% if status == 'Threat' or status == 'Phishing' %}
                 <h1 style="font-size: 3rem; margin: 0; color: var(--danger); text-shadow: 0 0 20px rgba(255, 75, 43, 0.5);">THREAT</h1>
-                <p>The Stacked Random Forest model detected severe structural anomalies. High probability of Spam/Phishing.</p>
+                <p>The system detected severe anomalies. High probability of Spam/Phishing.</p>
             {% elif status == 'Business Email Compromise' %}
                 <h1 style="font-size: 3rem; margin: 0; color: var(--warning); text-shadow: 0 0 20px rgba(241, 196, 15, 0.5);">BEC THREAT</h1>
                 <p>The model flagged this as a highly sophisticated Business Email Compromise attempt.</p>
@@ -22,8 +22,30 @@
                 <p>This email matches standard structural patterns of normal traffic.</p>
             {% endif %}
         </div>
+
+        <!-- Detection Method Badge -->
+        <div style="margin: 15px 0;">
+            {% if detection_method == 'Keyword Rule Engine (Override)' %}
+                <span style="background: rgba(255,75,43,0.15); color: var(--danger); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(255,75,43,0.3);">
+                    &#9888; Keyword Rule Engine Override
+                </span>
+            {% else %}
+                <span style="background: rgba(0,242,254,0.1); color: var(--accent); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(0,242,254,0.3);">
+                    &#129302; Machine Learning Model
+                </span>
+            {% endif %}
+        </div>
+
+        {% if keyword_reasons %}
+        <div style="background: rgba(255,75,43,0.08); border: 1px solid rgba(255,75,43,0.3); padding: 12px 16px; border-radius: 10px; margin: 15px 0; text-align: left;">
+            <p style="margin: 0 0 8px 0; font-weight: 700; color: var(--danger); font-size: 0.9rem;">Matched Threat Signals:</p>
+            {% for reason in keyword_reasons %}
+                <div style="font-size: 0.82rem; color: var(--text-secondary); padding: 3px 0;">&bull; {{ reason }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
         
-        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; margin-top: 30px;">
+        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
             <p style="margin: 0; font-family: monospace; color: var(--text-secondary); text-align: left;">{{ email_snippet }}</p>
         </div>
         

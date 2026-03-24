@@ -85,6 +85,79 @@ def extract_custom_features(text):
         login_words, reward_words, shorteners, excessive_punctuation, avg_word_length
     ]
 
+# ---- KEYWORD-BASED THREAT OVERRIDE ----
+# This layer catches obvious spam/phishing that the ML model may underestimate.
+# Returns an override status if strong keyword signals are found, or None to defer to ML.
+SPAM_KEYWORDS = [
+    'congratulations you have won', 'you are a winner', 'claim your prize',
+    'click here to claim', 'limited time offer', 'act now', 'risk free',
+    'buy now', 'order now', 'special promotion', 'exclusive deal', 'discount',
+    'make money fast', 'earn extra cash', 'work from home', 'online income',
+    'free gift', 'free trial', 'free access', 'free subscription',
+    'nigerian prince', 'lottery winner', 'unclaimed funds', 'inheritance',
+    'bank transfer', 'wire transfer funds', 'transfer of funds',
+    'sexually explicit', 'adult content', 'hot singles', 'meet singles',
+    'cheap meds', 'cheap pills', 'weight loss', 'diet pill', 'male enhancement',
+    'viagra', 'cialis', 'online pharmacy', 'prescription drugs',
+    'enlarge your', 'grow your', 'click below to unsubscribe',
+    'this is not spam', 'remove me from', 'if you wish to unsubscribe',
+    '100% guarantee', 'money back guarantee', 'no credit card required',
+    'pre-approved', 'you have been selected', 'dear winner',
+    'billion dollars', 'million dollars', 'secret shopper',
+]
+
+PHISHING_KEYWORDS = [
+    'verify your account', 'confirm your account', 'update your billing',
+    'your account has been suspended', 'your account will be closed',
+    'unusual activity detected', 'suspicious activity', 'security alert',
+    'login attempt', 'failed login', 'sign in to verify',
+    'your password has expired', 'reset your password immediately',
+    'enter your credentials', 'provide your details',
+    'your paypal account', 'your bank account needs', 'chase bank alert',
+    'apple id suspended', 'google account suspended', 'microsoft account',
+    'IRS notice', 'tax refund', 'HMRC refund',
+    'click the link below to verify', 'click here to secure your account',
+]
+
+BEC_KEYWORDS = [
+    'wire the funds', 'wire transfer', 'gift card', 'itunes gift card',
+    'google play card', 'steam gift card', 'please process payment',
+    'ceo approval', 'executive request', 'strictly confidential',
+    'do not discuss with anyone', "don't tell anyone", 'deal must close today',
+    'change bank details', 'new banking details', 'new account details',
+    'direct deposit change', 'payroll update', 'voided check',
+    'acquisition is underway', 'mergers and acquisitions', 'confidential transaction',
+]
+
+def keyword_threat_score(text):
+    """Returns (override_status, matched_reasons) if strong keyword signals are found.
+    Returns (None, []) if no strong signals - deferring to the ML model."""
+    if not isinstance(text, str):
+        text = str(text)
+    text_lower = text.lower()
+    reasons = []
+
+    spam_hits = sum(1 for kw in SPAM_KEYWORDS if kw in text_lower)
+    phishing_hits = sum(1 for kw in PHISHING_KEYWORDS if kw in text_lower)
+    bec_hits = sum(1 for kw in BEC_KEYWORDS if kw in text_lower)
+
+    if bec_hits >= 2:
+        matched = [kw for kw in BEC_KEYWORDS if kw in text_lower]
+        return 'Business Email Compromise', matched[:5]
+    if phishing_hits >= 2:
+        matched = [kw for kw in PHISHING_KEYWORDS if kw in text_lower]
+        return 'Phishing', matched[:5]
+    if spam_hits >= 3:
+        matched = [kw for kw in SPAM_KEYWORDS if kw in text_lower]
+        return 'Phishing', matched[:5]
+
+    # Single strong indicators
+    if phishing_hits >= 1 and (spam_hits >= 1 or bec_hits >= 1):
+        matched = [kw for kw in PHISHING_KEYWORDS + SPAM_KEYWORDS if kw in text_lower]
+        return 'Phishing', matched[:5]
+
+    return None, reasons
+
 # --- AUTHENTICATION ROUTES ---
 
 @app.route('/')
@@ -171,12 +244,32 @@ def analyze():
     rf_prediction = int(rf_model.predict(stacked_features)[0])
     
     if rf_prediction == 1:
-        status = "Phishing"
+        ml_status = "Phishing"
     elif rf_prediction == 2:
-        status = "Business Email Compromise"
+        ml_status = "Business Email Compromise"
     else:
-        status = "Safe"
+        ml_status = "Safe"
     
+    # --- KEYWORD OVERRIDE LAYER ---
+    # If the keyword engine finds strong signals, it overrides the ML status.
+    keyword_override, keyword_reasons = keyword_threat_score(email_text)
+    if keyword_override and ml_status == 'Safe':
+        status = keyword_override
+        detection_method = 'Keyword Rule Engine (Override)'
+    else:
+        status = ml_status
+        detection_method = 'Machine Learning Model'
+        keyword_reasons = []
+    
+    # Build feature display list
+    feature_names = [
+        'Text Length', 'HTML Tags', 'URLs', 'Exclamation Marks', 'Dollar Signs',
+        'Uppercase Ratio', 'Urgent Words', 'Account Words', 'Digit Count',
+        'Lexical Diversity', 'Login Words', 'Reward Words', 'URL Shorteners',
+        'Excessive Punctuation', 'Avg Word Length'
+    ]
+    features_display = [{'name': n, 'value': round(v, 4)} for n, v in zip(feature_names, features)]
+
     # Save to Database
     new_scan = ScanHistory(
         user_id=current_user.id,
@@ -188,7 +281,9 @@ def analyze():
     db.session.add(new_scan)
     db.session.commit()
     
-    return render_template('result.html', status=status, score=iso_score)
+    return render_template('result.html', status=status, score=iso_score,
+                           features=features_display, detection_method=detection_method,
+                           keyword_reasons=keyword_reasons)
 
 # --- ADMIN PANEL ---
 
@@ -207,12 +302,28 @@ def admin_dashboard():
 CLIENT_SECRETS_FILE = "credentials.json"
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
+# Gmail category label mapping
+GMAIL_CATEGORIES = {
+    'inbox':      '',                         # default, no extra label
+    'important':  'label:important',
+    'spam':       'in:spam',
+    'trash':      'in:trash',
+    'starred':    'is:starred',
+    'sent':       'in:sent',
+    'social':     'category:social',
+    'promotions': 'category:promotions',
+    'updates':    'category:updates',
+    'forums':     'category:forums',
+    'purchases':  'category:purchases',
+}
+
 @app.route('/trigger_scan', methods=['POST'])
 @login_required
 def trigger_scan():
     session['scan_count'] = int(request.form.get('scan_count', 10))
     session['scan_query'] = request.form.get('scan_query', '').strip()
     session['unread_only'] = request.form.get('unread_only') == 'on'
+    session['gmail_category'] = request.form.get('gmail_category', 'inbox')
     if request.form.get('switch_account') == 'true':
         session.pop('credentials', None)
     if 'credentials' not in session:
@@ -258,19 +369,27 @@ def scan_inbox():
     scan_count = session.get('scan_count', 10)
     scan_query = session.get('scan_query', '')
     unread_only = session.get('unread_only', True)
+    gmail_category = session.get('gmail_category', 'inbox')
     
-    final_query = scan_query
-    if unread_only:
+    # Build the Gmail query with category filter
+    category_filter = GMAIL_CATEGORIES.get(gmail_category, '')
+    final_query = ' '.join(filter(None, [category_filter, scan_query]))
+    
+    # Trash and Spam folders include all mail; don't force is:unread there
+    skip_unread = gmail_category in ('spam', 'trash', 'sent')
+    if unread_only and not skip_unread:
         final_query = (final_query + " is:unread").strip()
         
     from google.oauth2.credentials import Credentials
     from gmail_service import fetch_recent_emails
     
     creds = Credentials(**session['credentials'])
-    emails = fetch_recent_emails(creds, max_results=scan_count, query=final_query)
+    emails = fetch_recent_emails(creds, max_results=scan_count, query=final_query,
+                                 in_folder=gmail_category)
     
     if not emails:
-        return render_template('inbox_results.html', emails=[])
+        return render_template('inbox_results.html', emails=[], 
+                               scanned_folder=gmail_category.capitalize())
 
     scanned_results = []
     
@@ -288,11 +407,18 @@ def scan_inbox():
         rf_prediction = int(rf_model.predict(stacked_features)[0])
         
         if rf_prediction == 1:
-            status = "Phishing"
+            ml_status = "Phishing"
         elif rf_prediction == 2:
-            status = "Business Email Compromise"
+            ml_status = "Business Email Compromise"
         else:
-            status = "Safe"
+            ml_status = "Safe"
+
+        # Keyword override layer
+        keyword_override, _ = keyword_threat_score(text_content)
+        if keyword_override and ml_status == 'Safe':
+            status = keyword_override
+        else:
+            status = ml_status
             
         # Save to Database
         new_scan = ScanHistory(
@@ -314,7 +440,8 @@ def scan_inbox():
         
     db.session.commit()
 
-    return render_template('inbox_results.html', emails=scanned_results)
+    return render_template('inbox_results.html', emails=scanned_results,
+                           scanned_folder=gmail_category.capitalize())
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

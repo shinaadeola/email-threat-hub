@@ -66,6 +66,7 @@
             font-weight: 800;
             background: -webkit-linear-gradient(right, var(--accent), #fff);
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: 1px;
         }
@@ -207,7 +208,7 @@
 </head>
 <body>
     <div class="navbar">
-        <div class="navbar-brand">🛡️ Shield AI</div>
+        <div class="navbar-brand">📧 Email Threats Detector</div>
         <div class="nav-links">
             <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
             {% if current_user.is_authenticated %}

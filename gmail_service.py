@@ -48,7 +48,7 @@ def extract_email_body(payload):
         
     return body
 
-def fetch_recent_emails(creds, max_results=10, query="is:unread"):
+def fetch_recent_emails(creds, max_results=10, query="is:unread", in_folder='inbox'):
     """Fetches the most recent emails using the provided credentials."""
     try:
         # Call the Gmail API
@@ -59,10 +59,11 @@ def fetch_recent_emails(creds, max_results=10, query="is:unread"):
         messages = results.get('messages', [])
 
         # --- FALLBACK MECHANISM ---
-        # If the user's inbox is empty for unread emails, we don't want to show a broken empty page.
-        # Fall back to their most recent *read* emails so they can still see the detection work.
-        if not messages and "is:unread" in query:
-            print("No unread messages found matching the query. Falling back to fetching ANY recent messages...")
+        # If the user's inbox is empty for unread emails, fall back to recent emails.
+        # Skip this fallback for non-inbox folders like spam/trash.
+        skip_fallback = in_folder in ('spam', 'trash', 'sent')
+        if not messages and "is:unread" in query and not skip_fallback:
+            print("No unread messages found. Falling back to fetching ANY recent messages...")
             fallback_query = query.replace("is:unread", "").strip()
             results = service.users().messages().list(userId='me', maxResults=max_results, q=fallback_query).execute()
             messages = results.get('messages', [])
