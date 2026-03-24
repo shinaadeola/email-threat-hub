@@ -3,9 +3,9 @@
 {% block content %}
 <div style="text-align: center; margin-bottom: 2rem;">
     <h1>Live <span style="color: var(--accent);">Inbox Scan</span></h1>
-    <p>Scanned folder: <strong style="color: var(--accent);">{{ scanned_folder or 'Inbox' }}</strong> &mdash; {{ emails|length }} email(s) analyzed by the Stacked Machine Learning Architecture.</p>
+    <p>Scanned folder: <strong style="color: var(--accent);">{{ scanned_folder or 'Inbox' }}</strong>
+    &mdash; {{ emails|length }} email(s) analyzed by the Multi-Signal Threat Engine.</p>
 </div>
-
 
 {% if emails %}
     {% for email in emails %}
@@ -15,37 +15,64 @@
                 <h3 style="margin: 0;">{{ email.subject }}</h3>
                 <small style="color: var(--text-secondary);">From: {{ email.sender }}</small>
             </div>
-            <div>
-                {% if email.status == 'Threat' or email.status == 'Phishing' %}
-                    <span style="background: rgba(255, 75, 43, 0.2); color: var(--danger); padding: 5px 15px; border-radius: 20px; font-weight: bold;">Phishing Threat</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <!-- Confidence Badge -->
+                {% if email.confidence is defined %}
+                <small style="color: var(--text-secondary);">{{ "%.0f"|format(email.confidence * 100) }}%</small>
+                {% endif %}
+                <!-- Threat Level Badge -->
+                {% set cls = email.classification if email.classification is defined else '' %}
+                {% if cls == 'MALWARE' %}
+                    <span style="background: rgba(142,0,0,0.3); color: #ff4b2b; padding: 5px 15px; border-radius: 20px; font-weight: bold; border: 1px solid rgba(255,75,43,0.5);">🛑 MALWARE</span>
+                {% elif cls == 'PHISHING' %}
+                    <span style="background: rgba(255,75,43,0.2); color: var(--danger); padding: 5px 15px; border-radius: 20px; font-weight: bold;">🎣 PHISHING</span>
+                {% elif cls == 'SPAM' %}
+                    <span style="background: rgba(255,75,43,0.15); color: var(--danger); padding: 5px 15px; border-radius: 20px; font-weight: bold;">🚫 SPAM</span>
+                {% elif cls == 'SUSPICIOUS' %}
+                    <span style="background: rgba(241,196,15,0.2); color: var(--warning); padding: 5px 15px; border-radius: 20px; font-weight: bold;">⚠️ SUSPICIOUS</span>
+                {% elif email.status == 'Phishing' %}
+                    <span style="background: rgba(255,75,43,0.2); color: var(--danger); padding: 5px 15px; border-radius: 20px; font-weight: bold;">⚡ THREAT</span>
                 {% elif email.status == 'Business Email Compromise' %}
-                    <span style="background: rgba(241, 196, 15, 0.2); color: var(--warning); padding: 5px 15px; border-radius: 20px; font-weight: bold;">BEC Threat</span>
+                    <span style="background: rgba(241,196,15,0.2); color: var(--warning); padding: 5px 15px; border-radius: 20px; font-weight: bold;">🎯 BEC</span>
                 {% else %}
-                    <span style="background: rgba(0, 176, 155, 0.2); color: var(--success); padding: 5px 15px; border-radius: 20px; font-weight: bold;">Safe</span>
+                    <span style="background: rgba(0,176,155,0.2); color: var(--success); padding: 5px 15px; border-radius: 20px; font-weight: bold;">✅ SAFE</span>
                 {% endif %}
             </div>
         </div>
-        
-        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 15px;">
-            <p style="margin: 0; font-family: monospace; color: var(--text-secondary);">{{ email.snippet }}...</p>
+
+        <!-- Snippet -->
+        <div style="background: rgba(0,0,0,0.1); padding: 12px 15px; border-radius: 8px; border-left: 4px solid var(--accent); margin-bottom: 12px;">
+            <p style="margin: 0; font-family: monospace; color: var(--text-secondary); font-size: 0.88rem;">{{ email.snippet }}...</p>
         </div>
-        
-        <div style="display: flex; gap: 20px; font-size: 0.9rem;">
-            <div><strong>Stage 1:</strong> Isolation Forest (Score: {{ "%.3f"|format(email.score) }})</div>
-            <div><strong>Stage 2:</strong> Random Forest (Verdict: 
+
+        <!-- Triggered Signals (first 3) -->
+        {% if email.signals is defined and email.signals %}
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+            {% for sig in email.signals[:3] %}
+            <span style="background: rgba(255,75,43,0.1); color: var(--danger); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; border: 1px solid rgba(255,75,43,0.25);">⚡ {{ sig }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Stage scores -->
+        <div style="display: flex; gap: 20px; font-size: 0.85rem; color: var(--text-secondary);">
+            <div><strong>Stage 1:</strong> Isolation Forest ({{ "%.3f"|format(email.score) }})</div>
+            <div><strong>Stage 2:</strong> Verdict
                 {% if email.status == 'Safe' %}
                     <span class="safe">{{ email.status }}</span>
+                {% elif email.status == 'Business Email Compromise' %}
+                    <span class="bec">BEC</span>
                 {% else %}
                     <span class="threat">{{ email.status }}</span>
                 {% endif %}
-            )</div>
+            </div>
         </div>
     </div>
     {% endfor %}
 {% else %}
     <div style="text-align: center; padding: 40px; background: var(--glass-bg); border-radius: 12px;">
-        <h2>Inbox Empty</h2>
-        <p>No unread emails were found in your linked Gmail account.</p>
+        <h2>No Emails Found</h2>
+        <p>No emails matching your filter were found in the selected folder.</p>
     </div>
 {% endif %}
 

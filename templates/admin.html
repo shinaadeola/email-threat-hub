@@ -16,8 +16,7 @@
 </div>
 
 <div style="display: flex; justify-content: center; margin-bottom: 40px;">
-    <div
-        style="width: 400px; height: 400px; background: var(--container-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+    <div style="width: 400px; height: 400px; background: var(--container-bg); padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
         <h3 style="text-align: center; margin-top: 0;">Global Threat Distribution</h3>
         <canvas id="threatChart"></canvas>
     </div>
@@ -25,38 +24,38 @@
 
 <h3>Global Scan Intelligence (Latest 20)</h3>
 {% if scans %}
-<table>
-    <thead>
-        <tr>
-            <th>Date</th>
-            <th>User ID</th>
-            <th>Subject</th>
-            <th>Anomaly Score</th>
-            <th>Status</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for scan in scans %}
-        <tr>
-            <td>{{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>{{ scan.user.username }} (#{{ scan.user_id }})</td>
-            <td>{{ scan.email_subject or 'Manual Text Entry' }}</td>
-            <td>{{ "%.2f"|format(scan.anomaly_score) }}</td>
-            <td>
-                {% if scan.status == 'Safe' %}
-                <span class="safe">Safe</span>
-                {% elif scan.status == 'Business Email Compromise' %}
-                <span class="bec">BEC Threat</span>
-                {% else %}
-                <span class="threat">Phishing/Spam</span>
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>User ID</th>
+                <th>Subject</th>
+                <th>Anomaly Score</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scan in scans %}
+                <tr>
+                    <td>{{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ scan.user.username }} (#{{ scan.user_id }})</td>
+                    <td>{{ scan.email_subject or 'Manual Text Entry' }}</td>
+                    <td>{{ "%.2f"|format(scan.anomaly_score) }}</td>
+                    <td>
+                        {% if scan.status == 'Safe' %}
+                            <span class="safe">Safe</span>
+                        {% elif scan.status == 'Business Email Compromise' %}
+                            <span class="bec">BEC Threat</span>
+                        {% else %}
+                            <span class="threat">Phishing/Spam</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 {% else %}
-<p>No scans performed system-wide yet.</p>
+    <p>No scans performed system-wide yet.</p>
 {% endif %}
 
 <!-- Add Chart.js for beautiful Data Visualization -->

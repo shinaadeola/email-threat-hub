@@ -1,9 +1,10 @@
 import os
 import re
+import json
 import numpy as np
 import joblib
 import warnings
-from flask import Flask, request, render_template, redirect, url_for, session, flash
+from flask import Flask, request, render_template, redirect, url_for, session, flash, jsonify
 from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 import bcrypt
 from models_db import db, User, ScanHistory
@@ -58,6 +59,12 @@ if os.path.exists(rf_model_path):
 else:
     print("Warning: Supervised Random Forest model not found!")
 
+# ---- Instantiate the multi-signal Threat Engine ----
+from threat_engine import ThreatEngine
+threat_engine = ThreatEngine(iso_model=iso_model, scaler=scaler, rf_model=rf_model)
+print("Multi-Signal Threat Engine initialised.")
+
+# extract_custom_features is kept for backward compatibility (used in tests)
 def extract_custom_features(text):
     if not isinstance(text, str):
         text = str(text)
@@ -80,83 +87,13 @@ def extract_custom_features(text):
     excessive_punctuation = len(re.findall(r'[\?\*\#\@]{2,}', text))
     avg_word_length = sum(len(w) for w in words) / len(words) if len(words) > 0 else 0
     return [
-        length, html_tags, urls, exclamations, dollar_signs, upper_ratio, 
-        urgent_words, account_words, num_digits, lexical_diversity, 
+        length, html_tags, urls, exclamations, dollar_signs, upper_ratio,
+        urgent_words, account_words, num_digits, lexical_diversity,
         login_words, reward_words, shorteners, excessive_punctuation, avg_word_length
     ]
 
-# ---- KEYWORD-BASED THREAT OVERRIDE ----
-# This layer catches obvious spam/phishing that the ML model may underestimate.
-# Returns an override status if strong keyword signals are found, or None to defer to ML.
-SPAM_KEYWORDS = [
-    'congratulations you have won', 'you are a winner', 'claim your prize',
-    'click here to claim', 'limited time offer', 'act now', 'risk free',
-    'buy now', 'order now', 'special promotion', 'exclusive deal', 'discount',
-    'make money fast', 'earn extra cash', 'work from home', 'online income',
-    'free gift', 'free trial', 'free access', 'free subscription',
-    'nigerian prince', 'lottery winner', 'unclaimed funds', 'inheritance',
-    'bank transfer', 'wire transfer funds', 'transfer of funds',
-    'sexually explicit', 'adult content', 'hot singles', 'meet singles',
-    'cheap meds', 'cheap pills', 'weight loss', 'diet pill', 'male enhancement',
-    'viagra', 'cialis', 'online pharmacy', 'prescription drugs',
-    'enlarge your', 'grow your', 'click below to unsubscribe',
-    'this is not spam', 'remove me from', 'if you wish to unsubscribe',
-    '100% guarantee', 'money back guarantee', 'no credit card required',
-    'pre-approved', 'you have been selected', 'dear winner',
-    'billion dollars', 'million dollars', 'secret shopper',
-]
+# (Old keyword lists and keyword_threat_score removed — superseded by ThreatEngine)
 
-PHISHING_KEYWORDS = [
-    'verify your account', 'confirm your account', 'update your billing',
-    'your account has been suspended', 'your account will be closed',
-    'unusual activity detected', 'suspicious activity', 'security alert',
-    'login attempt', 'failed login', 'sign in to verify',
-    'your password has expired', 'reset your password immediately',
-    'enter your credentials', 'provide your details',
-    'your paypal account', 'your bank account needs', 'chase bank alert',
-    'apple id suspended', 'google account suspended', 'microsoft account',
-    'IRS notice', 'tax refund', 'HMRC refund',
-    'click the link below to verify', 'click here to secure your account',
-]
-
-BEC_KEYWORDS = [
-    'wire the funds', 'wire transfer', 'gift card', 'itunes gift card',
-    'google play card', 'steam gift card', 'please process payment',
-    'ceo approval', 'executive request', 'strictly confidential',
-    'do not discuss with anyone', "don't tell anyone", 'deal must close today',
-    'change bank details', 'new banking details', 'new account details',
-    'direct deposit change', 'payroll update', 'voided check',
-    'acquisition is underway', 'mergers and acquisitions', 'confidential transaction',
-]
-
-def keyword_threat_score(text):
-    """Returns (override_status, matched_reasons) if strong keyword signals are found.
-    Returns (None, []) if no strong signals - deferring to the ML model."""
-    if not isinstance(text, str):
-        text = str(text)
-    text_lower = text.lower()
-    reasons = []
-
-    spam_hits = sum(1 for kw in SPAM_KEYWORDS if kw in text_lower)
-    phishing_hits = sum(1 for kw in PHISHING_KEYWORDS if kw in text_lower)
-    bec_hits = sum(1 for kw in BEC_KEYWORDS if kw in text_lower)
-
-    if bec_hits >= 2:
-        matched = [kw for kw in BEC_KEYWORDS if kw in text_lower]
-        return 'Business Email Compromise', matched[:5]
-    if phishing_hits >= 2:
-        matched = [kw for kw in PHISHING_KEYWORDS if kw in text_lower]
-        return 'Phishing', matched[:5]
-    if spam_hits >= 3:
-        matched = [kw for kw in SPAM_KEYWORDS if kw in text_lower]
-        return 'Phishing', matched[:5]
-
-    # Single strong indicators
-    if phishing_hits >= 1 and (spam_hits >= 1 or bec_hits >= 1):
-        matched = [kw for kw in PHISHING_KEYWORDS + SPAM_KEYWORDS if kw in text_lower]
-        return 'Phishing', matched[:5]
-
-    return None, reasons
 
 # --- AUTHENTICATION ROUTES ---
 
@@ -228,62 +165,52 @@ def scan_page():
 @app.route('/analyze', methods=['POST'])
 @login_required
 def analyze():
-    if iso_model is None or scaler is None or rf_model is None:
-        return "System Error: Machine learning models are missing.", 500
-        
     email_text = request.form.get('emailInput', '')
     if not email_text.strip():
         return redirect(url_for('scan_page'))
-        
-    features = extract_custom_features(email_text)
-    features_array = np.array(features).reshape(1, -1)
-    scaled_features = scaler.transform(features_array)
-    iso_score = float(iso_model.decision_function(scaled_features)[0])
-    
-    stacked_features = np.hstack((features_array[0], [iso_score])).reshape(1, -1)
-    rf_prediction = int(rf_model.predict(stacked_features)[0])
-    
-    if rf_prediction == 1:
-        ml_status = "Phishing"
-    elif rf_prediction == 2:
-        ml_status = "Business Email Compromise"
-    else:
-        ml_status = "Safe"
-    
-    # --- KEYWORD OVERRIDE LAYER ---
-    # If the keyword engine finds strong signals, it overrides the ML status.
-    keyword_override, keyword_reasons = keyword_threat_score(email_text)
-    if keyword_override and ml_status == 'Safe':
-        status = keyword_override
-        detection_method = 'Keyword Rule Engine (Override)'
-    else:
-        status = ml_status
-        detection_method = 'Machine Learning Model'
-        keyword_reasons = []
-    
-    # Build feature display list
+
+    # Run the full multi-signal engine
+    result = threat_engine.classify(
+        text=email_text,
+        subject='',
+        sender='',
+        html_body='',
+        reply_to=''
+    )
+
+    # Feature display (for the Structural Features panel)
     feature_names = [
         'Text Length', 'HTML Tags', 'URLs', 'Exclamation Marks', 'Dollar Signs',
         'Uppercase Ratio', 'Urgent Words', 'Account Words', 'Digit Count',
         'Lexical Diversity', 'Login Words', 'Reward Words', 'URL Shorteners',
         'Excessive Punctuation', 'Avg Word Length'
     ]
-    features_display = [{'name': n, 'value': round(v, 4)} for n, v in zip(feature_names, features)]
+    raw_features = extract_custom_features(email_text)
+    features_display = [{'name': n, 'value': round(v, 4)}
+                        for n, v in zip(feature_names, raw_features)]
 
-    # Save to Database
+    # Persist to DB
     new_scan = ScanHistory(
         user_id=current_user.id,
-        email_subject="Manual Text Scan",
-        email_sender="N/A",
-        anomaly_score=iso_score,
-        status=status
+        email_subject='Manual Text Scan',
+        email_sender='N/A',
+        anomaly_score=result['layer_scores']['ml_model'],
+        status=result['legacy_status'],
+        threat_classification=result['classification'],
+        confidence_score=result['confidence_score'],
+        detection_signals=json.dumps(result['triggered_signals'][:10])
     )
     db.session.add(new_scan)
     db.session.commit()
-    
-    return render_template('result.html', status=status, score=iso_score,
-                           features=features_display, detection_method=detection_method,
-                           keyword_reasons=keyword_reasons)
+
+    return render_template(
+        'result.html',
+        result=result,
+        features=features_display,
+        # legacy shims so existing template refs still work
+        status=result['legacy_status'],
+        score=result['layer_scores']['ml_model'],
+    )
 
 # --- ADMIN PANEL ---
 
@@ -365,83 +292,138 @@ def oauth2callback():
 def scan_inbox():
     if 'credentials' not in session:
         return redirect(url_for('google_login'))
-    
-    scan_count = session.get('scan_count', 10)
-    scan_query = session.get('scan_query', '')
-    unread_only = session.get('unread_only', True)
+
+    scan_count    = session.get('scan_count', 10)
+    scan_query    = session.get('scan_query', '')
+    unread_only   = session.get('unread_only', True)
     gmail_category = session.get('gmail_category', 'inbox')
-    
-    # Build the Gmail query with category filter
+
     category_filter = GMAIL_CATEGORIES.get(gmail_category, '')
     final_query = ' '.join(filter(None, [category_filter, scan_query]))
-    
-    # Trash and Spam folders include all mail; don't force is:unread there
     skip_unread = gmail_category in ('spam', 'trash', 'sent')
     if unread_only and not skip_unread:
-        final_query = (final_query + " is:unread").strip()
-        
+        final_query = (final_query + ' is:unread').strip()
+
     from google.oauth2.credentials import Credentials
     from gmail_service import fetch_recent_emails
-    
-    creds = Credentials(**session['credentials'])
-    emails = fetch_recent_emails(creds, max_results=scan_count, query=final_query,
-                                 in_folder=gmail_category)
-    
+
+    creds  = Credentials(**session['credentials'])
+    emails = fetch_recent_emails(creds, max_results=scan_count,
+                                 query=final_query, in_folder=gmail_category)
+
     if not emails:
-        return render_template('inbox_results.html', emails=[], 
+        return render_template('inbox_results.html', emails=[],
                                scanned_folder=gmail_category.capitalize())
 
     scanned_results = []
-    
     for email in emails:
-        text_content = email['body']
-        if not text_content.strip():
-             text_content = email['snippet']
-             
-        features = extract_custom_features(text_content)
-        features_array = np.array(features).reshape(1, -1)
-        scaled_features = scaler.transform(features_array)
-        iso_score = float(iso_model.decision_function(scaled_features)[0])
-        
-        stacked_features = np.hstack((features_array[0], [iso_score])).reshape(1, -1)
-        rf_prediction = int(rf_model.predict(stacked_features)[0])
-        
-        if rf_prediction == 1:
-            ml_status = "Phishing"
-        elif rf_prediction == 2:
-            ml_status = "Business Email Compromise"
-        else:
-            ml_status = "Safe"
+        text_content = email['body'] or email['snippet']
 
-        # Keyword override layer
-        keyword_override, _ = keyword_threat_score(text_content)
-        if keyword_override and ml_status == 'Safe':
-            status = keyword_override
-        else:
-            status = ml_status
-            
-        # Save to Database
+        result = threat_engine.classify(
+            text=text_content,
+            subject=email.get('subject', ''),
+            sender=email.get('sender', ''),
+            html_body='',
+            reply_to=''
+        )
+
         new_scan = ScanHistory(
             user_id=current_user.id,
             email_subject=email['subject'],
             email_sender=email['sender'],
-            anomaly_score=iso_score,
-            status=status
+            anomaly_score=result['layer_scores']['ml_model'],
+            status=result['legacy_status'],
+            threat_classification=result['classification'],
+            confidence_score=result['confidence_score'],
+            detection_signals=json.dumps(result['triggered_signals'][:10])
         )
         db.session.add(new_scan)
-        
-        scanned_results.append({
-            'subject': email['subject'],
-            'sender': email['sender'],
-            'snippet': email['snippet'],
-            'status': status,
-            'score': iso_score
-        })
-        
-    db.session.commit()
 
+        scanned_results.append({
+            'subject':        email['subject'],
+            'sender':         email['sender'],
+            'snippet':        email['snippet'],
+            'status':         result['legacy_status'],
+            'classification': result['classification'],
+            'confidence':     result['confidence_score'],
+            'threat_level':   result['threat_level'],
+            'score':          result['layer_scores']['ml_model'],
+            'signals':        result['triggered_signals'][:5],
+        })
+
+    db.session.commit()
     return render_template('inbox_results.html', emails=scanned_results,
                            scanned_folder=gmail_category.capitalize())
+
+
+# =============================================================================
+# REST API — POST /api/classify-email
+# =============================================================================
+
+@app.route('/api/classify-email', methods=['POST'])
+@login_required
+def api_classify_email():
+    """
+    Accepts JSON: {subject, from, reply_to, body_text, body_html}
+    Returns structured threat classification result.
+    """
+    data      = request.get_json(force=True, silent=True) or {}
+    body_text = data.get('body_text', '') or data.get('body', '')
+    subject   = data.get('subject', '')
+    sender    = data.get('from', '') or data.get('sender', '')
+    reply_to  = data.get('reply_to', '')
+    html_body = data.get('body_html', '')
+
+    if not body_text.strip() and not subject.strip():
+        return jsonify({'error': 'body_text or subject is required'}), 400
+
+    result = threat_engine.classify(
+        text=body_text,
+        subject=subject,
+        sender=sender,
+        html_body=html_body,
+        reply_to=reply_to
+    )
+
+    # Optionally persist to DB
+    new_scan = ScanHistory(
+        user_id=current_user.id,
+        email_subject=subject or 'API Scan',
+        email_sender=sender or 'N/A',
+        anomaly_score=result['layer_scores']['ml_model'],
+        status=result['legacy_status'],
+        threat_classification=result['classification'],
+        confidence_score=result['confidence_score'],
+        detection_signals=json.dumps(result['triggered_signals'][:10])
+    )
+    db.session.add(new_scan)
+    db.session.commit()
+
+    return jsonify(result)
+
+
+# =============================================================================
+# REST API — POST /api/report-email  (feedback loop)
+# =============================================================================
+
+@app.route('/api/report-email', methods=['POST'])
+@login_required
+def api_report_email():
+    """
+    Feedback endpoint: marks an email as a FP/FN and updates the fingerprint DB.
+    Accepts JSON: {body_text, is_threat (bool), threat_type (SPAM|PHISHING|BEC)}
+    """
+    data       = request.get_json(force=True, silent=True) or {}
+    body_text  = data.get('body_text', '')
+    is_threat  = bool(data.get('is_threat', False))
+    threat_type = data.get('threat_type', 'SPAM').upper()
+
+    if not body_text.strip():
+        return jsonify({'error': 'body_text is required'}), 400
+
+    threat_engine.add_feedback(body_text, is_threat, threat_type)
+    return jsonify({'status': 'ok', 'recorded': True,
+                    'fingerprint_added': is_threat})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

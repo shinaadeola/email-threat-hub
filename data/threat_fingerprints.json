@@ -1,0 +1,105 @@
+{
+  "version": 2,
+  "fingerprints": [
+    {
+      "hash": "7e759c8c35afb330",
+      "label": "SPAM",
+      "name": "nigerian_prince"
+    },
+    {
+      "hash": "631607809b7a4ab8",
+      "label": "SPAM",
+      "name": "lottery_win"
+    },
+    {
+      "hash": "4f058d5c0aa320cc",
+      "label": "SPAM",
+      "name": "inheritance"
+    },
+    {
+      "hash": "606534c182ac4dc0",
+      "label": "SPAM",
+      "name": "work_from_home"
+    },
+    {
+      "hash": "304dff08c0c992eb",
+      "label": "SPAM",
+      "name": "weight_loss"
+    },
+    {
+      "hash": "104564de01dd4d10",
+      "label": "SPAM",
+      "name": "online_pharmacy"
+    },
+    {
+      "hash": "74d9f12ac96970b9",
+      "label": "SPAM",
+      "name": "selected_winner"
+    },
+    {
+      "hash": "dc71f51a99402cd2",
+      "label": "PHISHING",
+      "name": "paypal_suspended"
+    },
+    {
+      "hash": "885f925246acdfd6",
+      "label": "PHISHING",
+      "name": "bank_suspended"
+    },
+    {
+      "hash": "69dab0b780f65841",
+      "label": "PHISHING",
+      "name": "irs_refund"
+    },
+    {
+      "hash": "04b1904b15010e56",
+      "label": "PHISHING",
+      "name": "apple_suspended"
+    },
+    {
+      "hash": "48f9907ac82844b5",
+      "label": "PHISHING",
+      "name": "password_expired"
+    },
+    {
+      "hash": "c65d6d04dba8fd87",
+      "label": "PHISHING",
+      "name": "microsoft_phishing"
+    },
+    {
+      "hash": "215779665bf8fec0",
+      "label": "PHISHING",
+      "name": "google_phishing"
+    },
+    {
+      "hash": "c7e084ce7b985da2",
+      "label": "PHISHING",
+      "name": "amazon_phishing"
+    },
+    {
+      "hash": "a1f6a8eccf801d44",
+      "label": "PHISHING",
+      "name": "docusign_phishing"
+    },
+    {
+      "hash": "3985c1934a4f71df",
+      "label": "BEC",
+      "name": "gift_card"
+    },
+    {
+      "hash": "000674c52f37c588",
+      "label": "BEC",
+      "name": "wire_transfer"
+    },
+    {
+      "hash": "2c259ac65d9640e0",
+      "label": "BEC",
+      "name": "invoice_fraud"
+    },
+    {
+      "hash": "af321e0151270bc6",
+      "label": "BEC",
+      "name": "ceo_fraud"
+    }
+  ]
+}

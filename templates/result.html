@@ -9,70 +9,147 @@
     <!-- Left Column: Verdict -->
     <div style="flex: 1; background: var(--glass-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border); text-align: center;">
         <h2 style="margin-top: 0;">Verdict</h2>
-        
+
+        {% if result %}
+            {% set cls = result.classification %}
+        {% else %}
+            {% set cls = status %}
+        {% endif %}
+
         <div style="margin: 20px 0;">
-            {% if status == 'Threat' or status == 'Phishing' %}
-                <h1 style="font-size: 3rem; margin: 0; color: var(--danger); text-shadow: 0 0 20px rgba(255, 75, 43, 0.5);">THREAT</h1>
-                <p>The system detected severe anomalies. High probability of Spam/Phishing.</p>
+            {% if cls in ['PHISHING', 'MALWARE'] or status == 'Phishing' %}
+                <h1 style="font-size: 3rem; margin: 0; color: var(--danger); text-shadow: 0 0 20px rgba(255,75,43,0.5);">
+                    {{ cls if result else 'PHISHING' }}
+                </h1>
+                <p>High probability of Spam / Phishing detected.</p>
+            {% elif cls == 'SPAM' %}
+                <h1 style="font-size: 3rem; margin: 0; color: var(--danger); text-shadow: 0 0 20px rgba(255,75,43,0.5);">SPAM</h1>
+                <p>Multiple spam signals identified in this email.</p>
+            {% elif cls == 'SUSPICIOUS' %}
+                <h1 style="font-size: 2.5rem; margin: 0; color: var(--warning); text-shadow: 0 0 20px rgba(241,196,15,0.5);">SUSPICIOUS</h1>
+                <p>Some risk signals detected — treat with caution.</p>
             {% elif status == 'Business Email Compromise' %}
-                <h1 style="font-size: 3rem; margin: 0; color: var(--warning); text-shadow: 0 0 20px rgba(241, 196, 15, 0.5);">BEC THREAT</h1>
-                <p>The model flagged this as a highly sophisticated Business Email Compromise attempt.</p>
+                <h1 style="font-size: 2.5rem; margin: 0; color: var(--warning); text-shadow: 0 0 20px rgba(241,196,15,0.5);">BEC THREAT</h1>
+                <p>Business Email Compromise patterns identified.</p>
             {% else %}
-                <h1 style="font-size: 3rem; margin: 0; color: var(--success); text-shadow: 0 0 20px rgba(0, 176, 155, 0.5);">SAFE</h1>
-                <p>This email matches standard structural patterns of normal traffic.</p>
+                <h1 style="font-size: 3rem; margin: 0; color: var(--success); text-shadow: 0 0 20px rgba(0,176,155,0.5);">SAFE</h1>
+                <p>No significant threat signals detected.</p>
             {% endif %}
         </div>
 
-        <!-- Detection Method Badge -->
+        {% if result %}
+        <!-- Confidence Score Bar -->
+        <div style="margin: 20px 0; text-align: left;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem; color: var(--text-secondary);">
+                <span>Threat Confidence</span>
+                <strong>{{ "%.0f"|format(result.confidence_score * 100) }}%</strong>
+            </div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 20px; height: 10px; overflow: hidden;">
+                {% set pct = (result.confidence_score * 100)|int %}
+                {% if pct < 30 %}
+                    {% set bar_color = '#00b09b' %}
+                {% elif pct < 50 %}
+                    {% set bar_color = '#f1c40f' %}
+                {% elif pct < 85 %}
+                    {% set bar_color = '#ff4b2b' %}
+                {% else %}
+                    {% set bar_color = '#8e0000' %}
+                {% endif %}
+                <div style="width: {{ pct }}%; height: 100%; background: {{ bar_color }}; border-radius: 20px; transition: width 1s ease;"></div>
+            </div>
+        </div>
+
+        <!-- Recommended Action -->
         <div style="margin: 15px 0;">
-            {% if detection_method == 'Keyword Rule Engine (Override)' %}
-                <span style="background: rgba(255,75,43,0.15); color: var(--danger); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(255,75,43,0.3);">
-                    &#9888; Keyword Rule Engine Override
-                </span>
+            {% if result.recommended_action == 'ALLOW' %}
+                <span style="background: rgba(0,176,155,0.15); color: var(--success); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; border: 1px solid rgba(0,176,155,0.3);">✅ ALLOW</span>
+            {% elif result.recommended_action == 'REVIEW' %}
+                <span style="background: rgba(241,196,15,0.15); color: var(--warning); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; border: 1px solid rgba(241,196,15,0.3);">⚠️ REVIEW</span>
+            {% elif result.recommended_action == 'QUARANTINE' %}
+                <span style="background: rgba(255,75,43,0.15); color: var(--danger); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; border: 1px solid rgba(255,75,43,0.3);">🚫 QUARANTINE</span>
             {% else %}
-                <span style="background: rgba(0,242,254,0.1); color: var(--accent); padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(0,242,254,0.3);">
-                    &#129302; Machine Learning Model
-                </span>
+                <span style="background: rgba(142,0,0,0.2); color: #ff4b2b; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; border: 1px solid rgba(255,75,43,0.5);">🛑 BLOCK</span>
             {% endif %}
         </div>
 
-        {% if keyword_reasons %}
-        <div style="background: rgba(255,75,43,0.08); border: 1px solid rgba(255,75,43,0.3); padding: 12px 16px; border-radius: 10px; margin: 15px 0; text-align: left;">
-            <p style="margin: 0 0 8px 0; font-weight: 700; color: var(--danger); font-size: 0.9rem;">Matched Threat Signals:</p>
-            {% for reason in keyword_reasons %}
-                <div style="font-size: 0.82rem; color: var(--text-secondary); padding: 3px 0;">&bull; {{ reason }}</div>
+        <!-- Explanation -->
+        <div style="background: rgba(0,0,0,0.15); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 8px; margin: 15px 0; text-align: left;">
+            <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary);">{{ result.explanation }}</p>
+        </div>
+
+        <!-- Triggered Signals -->
+        {% if result.triggered_signals %}
+        <div style="text-align: left; margin: 15px 0;">
+            <p style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Triggered Signals</p>
+            {% for signal in result.triggered_signals[:10] %}
+                <div style="background: rgba(255,75,43,0.08); border: 1px solid rgba(255,75,43,0.2); padding: 5px 12px; border-radius: 6px; margin-bottom: 5px; font-size: 0.80rem; color: var(--danger); word-break: break-word;">
+                    ⚡ {{ signal }}
+                </div>
             {% endfor %}
         </div>
         {% endif %}
-        
-        <div style="background: rgba(0,0,0,0.1); padding: 15px; border-radius: 8px; margin-top: 20px;">
-            <p style="margin: 0; font-family: monospace; color: var(--text-secondary); text-align: left;">{{ email_snippet }}</p>
+
+        <!-- Flagged URLs -->
+        {% if result.flagged_urls %}
+        <div style="text-align: left; margin: 15px 0;">
+            <p style="font-size: 0.82rem; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Flagged URLs</p>
+            {% for url in result.flagged_urls %}
+                <div style="background: rgba(255,75,43,0.08); border: 1px solid rgba(255,75,43,0.2); padding: 5px 12px; border-radius: 6px; margin-bottom: 5px; font-size: 0.78rem; color: var(--danger); word-break: break-all;">
+                    🔗 {{ url }}
+                </div>
+            {% endfor %}
         </div>
-        
-        <a href="{{ url_for('scan_page') }}" class="btn" style="margin-top: 30px; width: 100%; box-sizing: border-box;">Scan Another Email</a>
+        {% endif %}
+
+        {% endif %} {# end if result #}
+
+        <a href="{{ url_for('scan_page') }}" class="btn" style="margin-top: 20px; width: 100%; box-sizing: border-box;">Scan Another Email</a>
     </div>
 
     <!-- Right Column: Metrics -->
     <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
+
+        {% if result %}
+        <!-- Layer Scores -->
+        <div style="background: var(--glass-bg); padding: 25px; border-radius: 15px; border: 1px solid var(--glass-border);">
+            <h3 style="margin-top: 0;">Detection Layer Scores</h3>
+            {% set layers = [
+                ('Keyword Analysis',      result.layer_scores.keyword),
+                ('HTML Structure',        result.layer_scores.html),
+                ('URL Analysis',          result.layer_scores.url),
+                ('Content Fingerprint',   result.layer_scores.fingerprint),
+                ('ML Model',              result.layer_scores.ml_model),
+                ('Sender Analysis',       result.layer_scores.sender)
+            ] %}
+            {% for name, val in layers %}
+            <div style="margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+                    <span style="color: var(--text-secondary);">{{ name }}</span>
+                    <strong>{{ "%.0f"|format(val * 100) }}%</strong>
+                </div>
+                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px;">
+                    {% set pval = (val * 100)|int %}
+                    {% if pval < 30 %}{% set lc = '#00b09b' %}{% elif pval < 60 %}{% set lc = '#f1c40f' %}{% else %}{% set lc = '#ff4b2b' %}{% endif %}
+                    <div style="width: {{ pval }}%; height: 100%; background: {{ lc }}; border-radius: 10px;"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Fallback: legacy model metrics -->
         <div style="background: var(--glass-bg); padding: 25px; border-radius: 15px; border: 1px solid var(--glass-border);">
             <h3 style="margin-top: 0;">Model Metrics</h3>
             <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">
-                <span>Stage 1: Anomaly Score</span>
+                <span>Anomaly Score</span>
                 <strong>{{ "%.3f"|format(score) }}</strong>
             </div>
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">
-                <span>Stage 2: Supervised Model</span>
-                <strong>Random Forest</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-                <span>Parameters</span>
-                <strong>Contamination: 0.1</strong>
-            </div>
         </div>
+        {% endif %}
 
+        <!-- Structural Features -->
         <div style="background: var(--glass-bg); padding: 25px; border-radius: 15px; border: 1px solid var(--glass-border);">
             <h3 style="margin-top: 0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Structural Features</h3>
-            <div style="max-height: 250px; overflow-y: auto;">
+            <div style="max-height: 280px; overflow-y: auto;">
                 <table style="width: 100%; margin-top: 0;">
                     <tbody>
                         {% for feat in features %}

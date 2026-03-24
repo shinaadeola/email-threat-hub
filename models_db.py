@@ -20,5 +20,10 @@ class ScanHistory(db.Model):
     email_subject = db.Column(db.String(255), nullable=True)
     email_sender = db.Column(db.String(255), nullable=True)
     anomaly_score = db.Column(db.Float, nullable=False)
-    status = db.Column(db.String(50), nullable=False) # Safe, Phishing, Business Email Compromise
+    status = db.Column(db.String(50), nullable=False)
+    # New: structured threat classification from multi-signal engine
+    threat_classification = db.Column(db.String(20), nullable=True)   # SAFE/SPAM/PHISHING/...
+    confidence_score = db.Column(db.Float, nullable=True)             # 0.0–1.0
+    detection_signals = db.Column(db.Text, nullable=True)             # JSON list of signals
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
