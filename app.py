@@ -99,7 +99,7 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password').encode('utf-8')
         user = User.query.filter_by(username=username).first()
-        stored_hash = user.password if isinstance(user.password, bytes) else user.password.encode('utf-8')
+        stored_hash = user.password.encode('utf-8') if isinstance(user.password, str) else user.password
         if user and bcrypt.checkpw(password, stored_hash):
             login_user(user)
             return redirect(url_for('dashboard'))
@@ -118,7 +118,7 @@ def register():
             flash('Username already exists')
             return redirect(url_for('register'))
             
-        hashed = bcrypt.hashpw(password, bcrypt.gensalt())
+        hashed = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
         # Make the first user an admin automatically
         is_admin = User.query.count() == 0
         new_user = User(username=username, password=hashed, is_admin=is_admin)
