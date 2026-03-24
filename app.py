@@ -99,7 +99,8 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password').encode('utf-8')
         user = User.query.filter_by(username=username).first()
-        if user and bcrypt.checkpw(password, user.password):
+        stored_hash = user.password if isinstance(user.password, bytes) else user.password.encode('utf-8')
+        if user and bcrypt.checkpw(password, stored_hash):
             login_user(user)
             return redirect(url_for('dashboard'))
         else:
