@@ -53,11 +53,11 @@ def _is_stale(path: str) -> bool:
 
 
 def _normalise_url(url: str) -> str:
-    """Lowercase, strip trailing slash and fragment."""
+    """Lowercase, strip scheme, trailing slash and fragment."""
     url = url.lower().strip().rstrip('/')
     if '#' in url:
         url = url[:url.index('#')]
-    return url
+    return re.sub(r'^https?://', '', url)
 
 
 def _domain_from_url(url: str) -> str:
@@ -155,15 +155,16 @@ def check_url(url: str) -> Tuple[bool, Optional[str]]:
     norm = _normalise_url(url)
     domain = _domain_from_url(norm)
 
-    # 1. Exact URL match
+    # 1. Exact URL match (scheme stripped natively by normalise_url)
     if norm in _url_exact:
         return True, 'FEED_EXACT_MATCH'
 
-    # 2. Strip scheme and check again
-    stripped = re.sub(r'^https?://', '', norm)
-    for bad in _url_exact:
-        bad_strip = re.sub(r'^https?://', '', bad)
-        if stripped == bad_strip or stripped.startswith(bad_strip + '/'):
+    # 2. Path chopping: check if any parent path is flagged (O(P) instead of O(N))
+    # E.g., for evil.com/a/b/c, checks evil.com/a/b, evil.com/a
+    parts = norm.split('/')
+    for i in range(len(parts) - 1, 0, -1):
+        parent_path = '/'.join(parts[:i])
+        if parent_path in _url_exact:
             return True, 'FEED_URL_MATCH'
 
     # 3. Domain-only match (the whole domain is known bad)
