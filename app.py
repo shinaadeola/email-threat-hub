@@ -545,5 +545,15 @@ def debug_sys():
     return jsonify({'status': 'ok', 'recorded': True,
                     'fingerprint_added': is_threat})
 
+@app.errorhandler(500)
+def handle_500_error(e):
+    import traceback
+    return "<pre><h2>CRITICAL 500 ERROR</h2>\\n" + traceback.format_exc() + "\\nError: " + str(e) + "</pre>", 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    import traceback
+    return "<pre><h2>UNHANDLED EXCEPTION</h2>\\n" + traceback.format_exc() + "\\nError: " + str(e) + "</pre>", 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
