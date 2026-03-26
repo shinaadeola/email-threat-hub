@@ -306,7 +306,9 @@ GMAIL_CATEGORIES = {
 @app.route('/trigger_scan', methods=['POST'])
 @login_required
 def trigger_scan():
-    session['scan_count'] = int(request.form.get('scan_count', 10))
+    # Cap at 5 emails max on Render free tier to prevent 30-second Gunicorn timeout
+    requested_count = int(request.form.get('scan_count', 5))
+    session['scan_count'] = min(requested_count, 5)
     session['scan_query'] = request.form.get('scan_query', '').strip()
     session['unread_only'] = request.form.get('unread_only') == 'on'
     session['gmail_category'] = request.form.get('gmail_category', 'inbox')
@@ -363,7 +365,7 @@ def scan_inbox():
     if 'credentials' not in session:
         return redirect(url_for('google_login'))
 
-    scan_count    = session.get('scan_count', 10)
+    scan_count    = session.get('scan_count', 5)
     scan_query    = session.get('scan_query', '')
     unread_only   = session.get('unread_only', True)
     gmail_category = session.get('gmail_category', 'inbox')
@@ -389,6 +391,10 @@ def scan_inbox():
         scanned_results = []
         for email in emails:
             text_content = email['body'] or email['snippet']
+            # Safeguard: Truncate massive emails (e.g. embedded base64 images) 
+            # to prevent Regex ReDoS taking multiple seconds per email
+            if text_content and len(text_content) > 15000:
+                text_content = text_content[:15000]
 
             result = threat_engine.classify(
                 text=text_content,
