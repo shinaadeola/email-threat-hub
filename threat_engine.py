@@ -403,9 +403,9 @@ def _score_keywords(text: str) -> Tuple[float, List[str]]:
     for phrase, weight in NEGATIVE_RULES.items():
         if phrase in text_lower:
             neg_total += weight   # weight is already negative
-    # Cap deduction: never reduce by more than 40% of the positive total
+    # Cap deduction: never reduce by more than 20% of the positive total
     if total > 0:
-        max_deduction = total * 0.40
+        max_deduction = total * 0.20  # FIX-7: Cap reduced 0.40→0.20 to prevent footer text from neutralising spam signals
         neg_total = max(neg_total, -max_deduction)
     total = max(0.0, total + neg_total)
 
@@ -422,7 +422,7 @@ def _score_keywords(text: str) -> Tuple[float, List[str]]:
         total += 0.45
         signals.append('MULTIPLE_BEC_SIGNALS')
 
-    score = min(1.0, total / 3.5)
+    score = min(1.0, total / 2.0)  # FIX-2: Divisor reduced 3.5→2.0 to prevent keyword score suppression
     return score, signals[:15]
 
 
@@ -708,7 +708,12 @@ def _extract_features(text: str) -> list:
 
 def _ml_score(text: str, iso_model, scaler, rf_model) -> Tuple[float, List[str]]:
     if not all([iso_model, scaler, rf_model]):
-        return 0.10, []
+        # FIX-6: Return neutral 0.0 so missing models don't bias the aggregator toward SAFE
+        import logging
+        logging.getLogger(__name__).warning(
+            "ML models unavailable — _ml_score returning 0.0 (neutral)"
+        )
+        return 0.0, ['ML_MODELS_UNAVAILABLE']
     try:
         import numpy as np
         features = _extract_features(text)
@@ -722,8 +727,11 @@ def _ml_score(text: str, iso_model, scaler, rf_model) -> Tuple[float, List[str]]
             base = min(1.0, base + 0.10)
         sigs = [] if pred == 0 else ['ML_MODEL_THREAT_DETECTED']
         return round(base, 4), sigs
-    except Exception:
-        return 0.10, []
+    except Exception as e:
+        # FIX-6: Log ML failures and return neutral 0.0 instead of misleading 0.10
+        import logging
+        logging.getLogger(__name__).error(f"ML scoring failed: {e}")
+        return 0.0, ['ML_SCORING_ERROR']
 
 
 # =============================================================================
@@ -731,15 +739,16 @@ def _ml_score(text: str, iso_model, scaler, rf_model) -> Tuple[float, List[str]]
 # =============================================================================
 
 def _classify(score: float) -> Tuple[str, str, str]:
-    if score < 0.30:
-        return 'SAFE',      'LOW',      'ALLOW'
-    if score < 0.50:
-        return 'SUSPICIOUS','MEDIUM',   'REVIEW'
-    if score < 0.70:
-        return 'SPAM',      'HIGH',     'QUARANTINE'
-    if score < 0.85:
-        return 'PHISHING',  'HIGH',     'BLOCK'
-    return     'MALWARE',   'CRITICAL', 'BLOCK'
+    # FIX-3: Thresholds tightened — SAFE zone narrowed from <0.30 to <0.20
+    if score < 0.20:
+        return 'SAFE',       'LOW',      'ALLOW'
+    if score < 0.40:
+        return 'SUSPICIOUS', 'MEDIUM',   'REVIEW'
+    if score < 0.60:
+        return 'SPAM',       'HIGH',     'QUARANTINE'
+    if score < 0.80:
+        return 'PHISHING',   'HIGH',     'BLOCK'
+    return     'MALWARE',    'CRITICAL', 'BLOCK'
 
 
 def _to_legacy(c: str) -> str:
@@ -827,24 +836,28 @@ class ThreatEngine:
 
         # --- weighted aggregation ---
         threat_score = min(1.0,
-            kw_score     * 0.25 +
-            html_score   * 0.15 +
-            url_score    * 0.25 +
-            fp_score     * 0.20 +
-            ml_score_v   * 0.10 +
-            sender_score * 0.05
+            kw_score     * 0.40 +   # FIX-1: Increased from 0.25 — primary signal for plain-text spam
+            html_score   * 0.15 +   # unchanged
+            url_score    * 0.20 +   # FIX-1: Reduced from 0.25 — secondary to keywords
+            fp_score     * 0.15 +   # FIX-1: Reduced from 0.20 — fingerprint is supportive
+            ml_score_v   * 0.05 +   # FIX-1: Reduced from 0.10 — ML unreliable alone
+            sender_score * 0.05     # unchanged
         )
 
         # --- Keyword confidence fast-path ---
-        # When keyword evidence alone is very strong (2+ critical phishing/BEC phrases),
-        # the aggregated score is boosted so obvious threats are NEVER labelled SAFE,
-        # even if the ML models are unavailable or return low confidence.
-        if kw_score >= 0.80:
-            threat_score = max(threat_score, 0.72)   # guarantees at least PHISHING
-        elif kw_score >= 0.60:
-            threat_score = max(threat_score, 0.52)   # guarantees at least SPAM
-        elif kw_score >= 0.38:
-            threat_score = max(threat_score, 0.32)   # guarantees at least SUSPICIOUS
+        # FIX-4: Floors recalibrated to new _classify() thresholds (Bug 3)
+        # Strong keyword evidence guarantees a minimum classification,
+        # BUT skip override when ≥3 negative (legitimate) signals are present
+        # (e.g. unsubscribe link, mailing address, privacy policy) — this
+        # prevents aggressive marketing emails from being escalated to MALWARE.
+        _neg_hits = sum(1 for p in NEGATIVE_RULES if p in combined.lower())
+        if _neg_hits < 3:
+            if kw_score >= 0.75:
+                threat_score = max(threat_score, 0.82)   # guarantees at least PHISHING
+            elif kw_score >= 0.50:
+                threat_score = max(threat_score, 0.62)   # guarantees at least SPAM
+            elif kw_score >= 0.30:
+                threat_score = max(threat_score, 0.42)   # guarantees at least SUSPICIOUS
 
         threat_score = round(min(1.0, threat_score), 4)
 

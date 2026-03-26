@@ -188,13 +188,43 @@ def analyze():
     if not email_text.strip():
         return redirect(url_for('scan_page'))
 
-    # Run the full multi-signal engine
+    # FIX-5: Parse submitted email text for richer context instead of passing empty strings
+    parsed_subject = ''
+    parsed_sender = ''
+    parsed_html = ''
+    parsed_reply_to = ''
+    remaining_body = email_text
+
+    lines = email_text.splitlines()
+    header_end = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            header_end = i
+            break
+        lower = stripped.lower()
+        if lower.startswith('subject:'):
+            parsed_subject = stripped[8:].strip()
+        elif lower.startswith('from:'):
+            parsed_sender = stripped[5:].strip()
+        elif lower.startswith('reply-to:'):
+            parsed_reply_to = stripped[9:].strip()
+
+    # Reconstruct body without parsed headers
+    if header_end > 0:
+        remaining_body = '\n'.join(lines[header_end:]).strip()
+
+    # Detect if body contains HTML
+    if re.search(r'<(html|body|div|table|a\s)', remaining_body, re.I):
+        parsed_html = remaining_body
+
+    # Run the full multi-signal engine with parsed context
     result = threat_engine.classify(
-        text=email_text,
-        subject='',
-        sender='',
-        html_body='',
-        reply_to=''
+        text=remaining_body or email_text,
+        subject=parsed_subject,
+        sender=parsed_sender,
+        html_body=parsed_html,
+        reply_to=parsed_reply_to
     )
 
     # Feature display (for the Structural Features panel)
