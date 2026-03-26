@@ -107,67 +107,9 @@
         </div>
         {% endif %}
 
-        {% endif %} {# end if result #}
-
-        <a href="{{ url_for('scan_page') }}" class="btn" style="margin-top: 20px; width: 100%; box-sizing: border-box;">Scan Another Email</a>
-    </div>
-
-    <!-- Right Column: Metrics -->
-    <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
-
-        {% if result %}
-        <!-- Layer Scores -->
-        <div style="background: var(--glass-bg); padding: 25px; border-radius: 15px; border: 1px solid var(--glass-border);">
-            <h3 style="margin-top: 0;">Detection Layer Scores</h3>
-            {% set layers = [
-                ('Keyword Analysis',      result.layer_scores.keyword),
-                ('HTML Structure',        result.layer_scores.html),
-                ('URL Analysis',          result.layer_scores.url),
-                ('Content Fingerprint',   result.layer_scores.fingerprint),
-                ('ML Model',              result.layer_scores.ml_model),
-                ('Sender Analysis',       result.layer_scores.sender)
-            ] %}
-            {% for name, val in layers %}
-            <div style="margin-bottom: 12px;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
-                    <span style="color: var(--text-secondary);">{{ name }}</span>
-                    <strong>{{ "%.0f"|format(val * 100) }}%</strong>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px;">
-                    {% set pval = (val * 100)|int %}
-                    {% if pval < 30 %}{% set lc = '#00b09b' %}{% elif pval < 60 %}{% set lc = '#f1c40f' %}{% else %}{% set lc = '#ff4b2b' %}{% endif %}
-                    <div style="width: {{ pval }}%; height: 100%; background: {{ lc }}; border-radius: 10px;"></div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-        {% else %}
-        <!-- Fallback: legacy model metrics -->
-        <div style="background: var(--glass-bg); padding: 25px; border-radius: 15px; border: 1px solid var(--glass-border);">
-            <h3 style="margin-top: 0;">Model Metrics</h3>
-            <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px; margin-bottom: 10px;">
-                <span>Anomaly Score</span>
-                <strong>{{ "%.3f"|format(score) }}</strong>
-            </div>
-        </div>
         {% endif %}
 
-        <!-- Structural Features -->
-        <div style="background: var(--glass-bg); padding: 25px; border-radius: 15px; border: 1px solid var(--glass-border);">
-            <h3 style="margin-top: 0; border-bottom: 1px solid var(--glass-border); padding-bottom: 10px;">Structural Features</h3>
-            <div style="max-height: 280px; overflow-y: auto;">
-                <table style="width: 100%; margin-top: 0;">
-                    <tbody>
-                        {% for feat in features %}
-                        <tr>
-                            <td style="padding: 8px 0; border-bottom: 1px dotted var(--glass-border);">{{ feat.name }}</td>
-                            <td style="padding: 8px 0; border-bottom: 1px dotted var(--glass-border); text-align: right; font-family: monospace;">{{ feat.value }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <a href="{{ url_for('scan_page') }}" class="btn" style="margin-top: 20px; width: 100%; box-sizing: border-box;">Scan Another Email</a>
     </div>
 </div>
 {% endblock %}

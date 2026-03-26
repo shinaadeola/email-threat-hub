@@ -333,7 +333,7 @@ def oauth2callback():
         'token_uri': credentials.token_uri,
         'client_id': credentials.client_id,
         'client_secret': credentials.client_secret,
-        'scopes': credentials.scopes}
+        'scopes': list(credentials.scopes) if credentials.scopes else []}
     return redirect(url_for('scan_inbox'))
 
 @app.route('/scan_inbox')
@@ -347,62 +347,70 @@ def scan_inbox():
     unread_only   = session.get('unread_only', True)
     gmail_category = session.get('gmail_category', 'inbox')
 
-    category_filter = GMAIL_CATEGORIES.get(gmail_category, '')
-    final_query = ' '.join(filter(None, [category_filter, scan_query]))
-    skip_unread = gmail_category in ('spam', 'trash', 'sent')
-    if unread_only and not skip_unread:
-        final_query = (final_query + ' is:unread').strip()
+    try:
+        category_filter = GMAIL_CATEGORIES.get(gmail_category, '')
+        final_query = ' '.join(filter(None, [category_filter, scan_query]))
+        skip_unread = gmail_category in ('spam', 'trash', 'sent')
+        if unread_only and not skip_unread:
+            final_query = (final_query + ' is:unread').strip()
 
-    from google.oauth2.credentials import Credentials
-    from gmail_service import fetch_recent_emails
+        from google.oauth2.credentials import Credentials
+        from gmail_service import fetch_recent_emails
 
-    creds  = Credentials(**session['credentials'])
-    emails = fetch_recent_emails(creds, max_results=scan_count,
-                                 query=final_query, in_folder=gmail_category)
+        creds  = Credentials(**session['credentials'])
+        emails = fetch_recent_emails(creds, max_results=scan_count,
+                                     query=final_query, in_folder=gmail_category)
 
-    if not emails:
-        return render_template('inbox_results.html', emails=[],
+        if not emails:
+            return render_template('inbox_results.html', emails=[],
+                                   scanned_folder=gmail_category.capitalize())
+
+        scanned_results = []
+        for email in emails:
+            text_content = email['body'] or email['snippet']
+
+            result = threat_engine.classify(
+                text=text_content,
+                subject=email.get('subject', ''),
+                sender=email.get('sender', ''),
+                html_body='',
+                reply_to=''
+            )
+
+            new_scan = ScanHistory(
+                user_id=current_user.id,
+                email_subject=email['subject'],
+                email_sender=email['sender'],
+                anomaly_score=result['layer_scores']['ml_model'],
+                status=result['legacy_status'],
+                threat_classification=result['classification'],
+                confidence_score=result['confidence_score'],
+                detection_signals=json.dumps(result['triggered_signals'][:10])
+            )
+            db.session.add(new_scan)
+
+            scanned_results.append({
+                'subject':        email['subject'],
+                'sender':         email['sender'],
+                'snippet':        email['snippet'],
+                'status':         result['legacy_status'],
+                'classification': result['classification'],
+                'confidence':     result['confidence_score'],
+                'threat_level':   result['threat_level'],
+                'score':          result['layer_scores']['ml_model'],
+                'signals':        result['triggered_signals'][:5],
+            })
+
+        db.session.commit()
+        return render_template('inbox_results.html', emails=scanned_results,
                                scanned_folder=gmail_category.capitalize())
 
-    scanned_results = []
-    for email in emails:
-        text_content = email['body'] or email['snippet']
-
-        result = threat_engine.classify(
-            text=text_content,
-            subject=email.get('subject', ''),
-            sender=email.get('sender', ''),
-            html_body='',
-            reply_to=''
-        )
-
-        new_scan = ScanHistory(
-            user_id=current_user.id,
-            email_subject=email['subject'],
-            email_sender=email['sender'],
-            anomaly_score=result['layer_scores']['ml_model'],
-            status=result['legacy_status'],
-            threat_classification=result['classification'],
-            confidence_score=result['confidence_score'],
-            detection_signals=json.dumps(result['triggered_signals'][:10])
-        )
-        db.session.add(new_scan)
-
-        scanned_results.append({
-            'subject':        email['subject'],
-            'sender':         email['sender'],
-            'snippet':        email['snippet'],
-            'status':         result['legacy_status'],
-            'classification': result['classification'],
-            'confidence':     result['confidence_score'],
-            'threat_level':   result['threat_level'],
-            'score':          result['layer_scores']['ml_model'],
-            'signals':        result['triggered_signals'][:5],
-        })
-
-    db.session.commit()
-    return render_template('inbox_results.html', emails=scanned_results,
-                           scanned_folder=gmail_category.capitalize())
+    except Exception as e:
+        print(f'Gmail scan error: {e}')
+        # Clear bad credentials so the user can re-authenticate
+        session.pop('credentials', None)
+        flash(f'Gmail scan failed: {e}. Please try connecting again.')
+        return redirect(url_for('dashboard'))
 
 
 # =============================================================================
