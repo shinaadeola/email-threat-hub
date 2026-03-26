@@ -20,6 +20,23 @@ from urllib.parse import urlparse
 from typing import Tuple, List, Optional
 from bs4 import BeautifulSoup
 
+# Extended rule sets and negative scoring (kept separate to avoid corruption)
+try:
+    from threat_rules import SPAM_EXTRA, PHISHING_EXTRA, BEC_EXTRA, NEGATIVE_RULES, EXTRA_OBFUSCATION
+    _RULES_LOADED = True
+except Exception:
+    SPAM_EXTRA = PHISHING_EXTRA = BEC_EXTRA = {}
+    NEGATIVE_RULES = {}
+    EXTRA_OBFUSCATION = []
+    _RULES_LOADED = False
+
+# Live threat-feed lookups (OpenPhish, URLhaus, optional VirusTotal/GSB)
+try:
+    import threat_intel as _ti
+    _FEEDS_AVAILABLE = True
+except Exception:
+    _FEEDS_AVAILABLE = False
+
 # =============================================================================
 # LAYER 2a — WEIGHTED KEYWORD / PHRASE SCORING
 # =============================================================================
@@ -371,27 +388,43 @@ def _score_keywords(text: str) -> Tuple[float, List[str]]:
     text_lower = text.lower()
     signals, total = [], 0.0
 
-    # Weighted phrase matching
-    for phrase, weight in {**SPAM_WEIGHTED, **PHISHING_WEIGHTED, **BEC_WEIGHTED}.items():
+    # Merge base + extended rule sets
+    all_positive = {**SPAM_WEIGHTED, **PHISHING_WEIGHTED, **BEC_WEIGHTED,
+                    **SPAM_EXTRA, **PHISHING_EXTRA, **BEC_EXTRA}
+
+    # Weighted phrase matching (positive rules)
+    for phrase, weight in all_positive.items():
         if phrase in text_lower:
             total += weight
             signals.append(f'KEYWORD: "{phrase}"')
 
-    # Obfuscation detection
-    for pattern, weight in OBFUSCATION_PATTERNS:
+    # Negative rules: reduce score for legitimate email signals
+    neg_total = 0.0
+    for phrase, weight in NEGATIVE_RULES.items():
+        if phrase in text_lower:
+            neg_total += weight   # weight is already negative
+    # Cap deduction: never reduce by more than 40% of the positive total
+    if total > 0:
+        max_deduction = total * 0.40
+        neg_total = max(neg_total, -max_deduction)
+    total = max(0.0, total + neg_total)
+
+    # Obfuscation detection (base patterns + extended patterns)
+    for pattern, weight in OBFUSCATION_PATTERNS + EXTRA_OBFUSCATION:
         if re.search(pattern, text_lower):
             total += weight
             signals.append('OBFUSCATION_DETECTED')
             break
 
     # BEC cluster boost: 2+ BEC phrases → extra weight
-    bec_hits = sum(1 for p in BEC_WEIGHTED if p in text_lower)
+    bec_hits = sum(1 for p in {**BEC_WEIGHTED, **BEC_EXTRA} if p in text_lower)
     if bec_hits >= 2:
         total += 0.45
         signals.append('MULTIPLE_BEC_SIGNALS')
 
     score = min(1.0, total / 3.5)
-    return score, signals[:12]
+    return score, signals[:15]
+
 
 
 # =============================================================================
@@ -583,9 +616,23 @@ def _analyze_urls(text: str, html_body: str = '') -> Tuple[float, List[str], Lis
         except Exception:
             pass
 
+    # ── Layer 2d: Live threat feed check (OpenPhish, URLhaus) ─────────────────
+    # This is the most impactful check — catches copy-paste phishing URLs
+    # that exist in crowdsourced threat databases even from clean senders.
+    if _FEEDS_AVAILABLE and urls:
+        try:
+            feed_hit, feed_src, feed_flagged = _ti.check_urls_batch(urls)
+            if feed_hit:
+                signals.append(f'LIVE_FEED_HIT:{feed_src}')
+                flagged.extend(feed_flagged)
+                score = max(score, 0.95)
+        except Exception:
+            pass
+
     dedup_signals = list(dict.fromkeys(signals))
     dedup_urls    = list(dict.fromkeys(flagged))
-    return min(1.0, score), dedup_signals[:10], dedup_urls[:10]
+    return min(1.0, score), dedup_signals[:12], dedup_urls[:12]
+
 
 
 # =============================================================================
