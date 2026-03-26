@@ -183,8 +183,6 @@ NEGATIVE_RULES = {
 
 # ── Additional obfuscation patterns ───────────────────────────────────────────
 EXTRA_OBFUSCATION = [
-    # Zero-width / invisible Unicode spacers inserted to break keyword matching
-    (r'[\u200b\u200c\u200d\ufeff\u00ad]', 0.60),   # ZWSP, ZWNJ, ZWJ, BOM, soft-hyphen
     # Paypal l33t
     (r'p[a4@][y]?p[a4@][l1|!]', 0.85),
     # G00gle / G0ogle

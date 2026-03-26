@@ -438,14 +438,12 @@ def _analyze_html(html_body: str) -> Tuple[float, List[str]]:
     try:
         soup = BeautifulSoup(html_body, 'html.parser')
 
-        # 1. Hidden text tricks
+        # 1. Hidden text tricks (Only extreme cases, ignore standard responsive tricks)
         for elem in soup.find_all(style=True):
             s = elem.get('style', '').lower().replace(' ', '')
-            if ('font-size:0' in s or 'color:#fff' in s or
-                    'color:white' in s or 'display:none' in s or
-                    'visibility:hidden' in s):
+            if ('font-size:0px' in s and 'color:transparent' in s):
                 signals.append('HTML_HIDDEN_TEXT')
-                score += 0.65
+                score += 0.40
                 break
 
         # 2. Href vs display-URL mismatch
