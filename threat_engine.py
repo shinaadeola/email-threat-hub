@@ -836,13 +836,19 @@ class ThreatEngine:
 
         # --- weighted aggregation ---
         threat_score = min(1.0,
-            kw_score     * 0.40 +   # FIX-1: Increased from 0.25 — primary signal for plain-text spam
-            html_score   * 0.15 +   # unchanged
-            url_score    * 0.20 +   # FIX-1: Reduced from 0.25 — secondary to keywords
-            fp_score     * 0.15 +   # FIX-1: Reduced from 0.20 — fingerprint is supportive
-            ml_score_v   * 0.05 +   # FIX-1: Reduced from 0.10 — ML unreliable alone
-            sender_score * 0.05     # unchanged
+            kw_score     * 0.25 +
+            html_score   * 0.15 +
+            url_score    * 0.20 +
+            fp_score     * 0.15 +
+            ml_score_v   * 0.20 +   # raised from 0.05 — ML needs meaningful weight
+            sender_score * 0.05
         )
+
+        # --- ML safety net ---
+        # If the ML model is confident but all rule-based layers missed the threat,
+        # prevent the score from being buried at near-zero. Force at least SUSPICIOUS.
+        if ml_score_v >= 0.70 and threat_score < 0.30:
+            threat_score = max(threat_score, 0.30)
 
         # --- Keyword confidence fast-path ---
         # FIX-4: Floors recalibrated to new _classify() thresholds (Bug 3)
