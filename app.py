@@ -394,8 +394,8 @@ def scan_inbox():
 
             new_scan = ScanHistory(
                 user_id=current_user.id,
-                email_subject=email['subject'],
-                email_sender=email['sender'],
+                email_subject=email.get('subject', '')[:250],
+                email_sender=email.get('sender', '')[:250],
                 anomaly_score=result['layer_scores']['ml_model'],
                 status=result['legacy_status'],
                 threat_classification=result['classification'],
@@ -421,12 +421,14 @@ def scan_inbox():
                                scanned_folder=gmail_category.capitalize())
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        db.session.rollback()
         print(f'Gmail scan error: {e}')
         # Clear bad credentials so the user can re-authenticate
         session.pop('credentials', None)
         flash(f'Gmail scan failed: {e}. Please try connecting again.')
         return redirect(url_for('dashboard'))
-
 
 # =============================================================================
 # REST API — POST /api/classify-email
