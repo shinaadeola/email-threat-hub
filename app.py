@@ -497,5 +497,51 @@ def api_report_email():
     return jsonify({'status': 'ok', 'recorded': True,
                     'fingerprint_added': is_threat})
 
+@app.route('/debug-sys')
+def debug_sys():
+    """Diagnostic route to identify hidden Render 500 errors"""
+    import traceback
+    logs = []
+    
+    try:
+        logs.append("Testing database connection...")
+        User.query.count()
+        logs.append("Database OK.")
+    except Exception as e:
+        logs.append(f"DB Error: {traceback.format_exc()}")
+        
+    try:
+        logs.append("Testing bcrypt...")
+        hashed = bcrypt.hashpw(b"testpass", bcrypt.gensalt()).decode('utf-8')
+        logs.append("Bcrypt OK.")
+    except Exception as e:
+        logs.append(f"Bcrypt Error: {traceback.format_exc()}")
+        
+    try:
+        logs.append("Testing credentials.json...")
+        if os.path.exists(CLIENT_SECRETS_FILE):
+            logs.append(f"{CLIENT_SECRETS_FILE} found.")
+        else:
+            logs.append(f"{CLIENT_SECRETS_FILE} NOT FOUND.")
+    except Exception as e:
+        logs.append(f"Credentials Error: {traceback.format_exc()}")
+        
+    return "<pre>" + "\\n".join(logs) + "</pre>"
+    """
+    Feedback endpoint: marks an email as a FP/FN and updates the fingerprint DB.
+    Accepts JSON: {body_text, is_threat (bool), threat_type (SPAM|PHISHING|BEC)}
+    """
+    data       = request.get_json(force=True, silent=True) or {}
+    body_text  = data.get('body_text', '')
+    is_threat  = bool(data.get('is_threat', False))
+    threat_type = data.get('threat_type', 'SPAM').upper()
+
+    if not body_text.strip():
+        return jsonify({'error': 'body_text is required'}), 400
+
+    threat_engine.add_feedback(body_text, is_threat, threat_type)
+    return jsonify({'status': 'ok', 'recorded': True,
+                    'fingerprint_added': is_threat})
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
