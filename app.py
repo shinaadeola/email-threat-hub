@@ -16,6 +16,10 @@ if os.environ.get('FLASK_ENV') != 'production':
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_flask_session_replace_in_prod'
 
+# Fix url_for generating http:// instead of https:// behind Render's reverse proxy
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 # Configure Database
 basedir = os.path.abspath(os.path.dirname(__file__))
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///' + os.path.join(basedir, 'database.db'))
@@ -309,32 +313,43 @@ def trigger_scan():
 @app.route('/google_login')
 @login_required
 def google_login():
-    from google_auth_oauthlib.flow import Flow
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES)
-    flow.redirect_uri = url_for('oauth2callback', _external=True)
-    authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true', prompt='consent select_account')
-    session['state'] = state
-    return redirect(authorization_url)
+    try:
+        from google_auth_oauthlib.flow import Flow
+        flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES)
+        flow.redirect_uri = url_for('oauth2callback', _external=True)
+        authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true', prompt='consent select_account')
+        session['state'] = state
+        return redirect(authorization_url)
+    except Exception as e:
+        print(f'Google login error: {e}')
+        flash(f'Could not connect to Google: {e}')
+        return redirect(url_for('dashboard'))
 
 @app.route('/oauth2callback')
 @login_required
 def oauth2callback():
-    from google_auth_oauthlib.flow import Flow
-    state = session.get('state')
-    if not state:
-        return "Error: Missing session state.", 400
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
-    flow.redirect_uri = url_for('oauth2callback', _external=True)
-    flow.fetch_token(authorization_response=request.url)
-    credentials = flow.credentials
-    session['credentials'] = {
-        'token': credentials.token,
-        'refresh_token': credentials.refresh_token,
-        'token_uri': credentials.token_uri,
-        'client_id': credentials.client_id,
-        'client_secret': credentials.client_secret,
-        'scopes': list(credentials.scopes) if credentials.scopes else []}
-    return redirect(url_for('scan_inbox'))
+    try:
+        from google_auth_oauthlib.flow import Flow
+        state = session.get('state')
+        if not state:
+            flash('OAuth session expired. Please try again.')
+            return redirect(url_for('dashboard'))
+        flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
+        flow.redirect_uri = url_for('oauth2callback', _external=True)
+        flow.fetch_token(authorization_response=request.url)
+        credentials = flow.credentials
+        session['credentials'] = {
+            'token': credentials.token,
+            'refresh_token': credentials.refresh_token,
+            'token_uri': credentials.token_uri,
+            'client_id': credentials.client_id,
+            'client_secret': credentials.client_secret,
+            'scopes': list(credentials.scopes) if credentials.scopes else []}
+        return redirect(url_for('scan_inbox'))
+    except Exception as e:
+        print(f'OAuth callback error: {e}')
+        flash(f'Gmail authentication failed: {e}')
+        return redirect(url_for('dashboard'))
 
 @app.route('/scan_inbox')
 @login_required
