@@ -72,6 +72,9 @@ scaler = None
 if os.path.exists(model_path) and os.path.exists(scaler_path):
     iso_model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
+    # Force single thread to prevent joblib Parallel deadlocks on Render
+    if hasattr(iso_model, 'n_jobs'):
+        iso_model.n_jobs = 1
 else:
     print("Warning: Models not found in models/ directory!")
 
@@ -79,6 +82,9 @@ rf_model_path = os.path.join("models", "random_forest.pkl")
 rf_model = None
 if os.path.exists(rf_model_path):
     rf_model = joblib.load(rf_model_path)
+    # Force single thread to prevent joblib Parallel deadlocks on Render
+    if hasattr(rf_model, 'n_jobs'):
+        rf_model.n_jobs = 1
 else:
     print("Warning: Supervised Random Forest model not found!")
 
